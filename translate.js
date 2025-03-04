@@ -11,9 +11,7 @@ const OPENAI_API_KEY = "";
  */
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
-  ui.createMenu("Translation Tools")
-    .addItem("Translate Words with OpenAI", "translateWordsInColumn")
-    .addToUi();
+  ui.createMenu("Translation Tools").addItem("Translate Words with OpenAI", "translateWordsInColumn").addToUi();
 }
 
 /**
@@ -62,71 +60,43 @@ function translateWordsInColumn() {
   // If using context, get all context values
   let contexts = [];
   if (hasContextColumn) {
-    contexts = sheet
-      .getRange(startRow, contextColumn, numRows, 1)
-      .getValues()
-      .flat();
+    contexts = sheet.getRange(startRow, contextColumn, numRows, 1).getValues().flat();
   }
 
   // Create a progress indicator
   let translatedCount = 0;
   const totalToTranslate = words.filter((word) => word.trim() !== "").length;
 
-  // Process translations sequentially with promises
-  const processTranslations = async () => {
-    for (let i = 0; i < numRows; i++) {
-      const word = words[i];
-      if (word.trim() === "") continue;
+  // Process translations sequentially
+  for (let i = 0; i < numRows; i++) {
+    const word = words[i];
+    if (word.trim() === "") continue;
 
-      const context = hasContextColumn ? contexts[i] : "";
+    const context = hasContextColumn ? contexts[i] : "";
 
-      try {
-        const translation = await translateWithOpenAI(
-          word,
-          sourceLanguage,
-          targetLanguage,
-          context
-        );
+    try {
+      const translation = translateWithOpenAI(word, sourceLanguage, targetLanguage, context);
 
-        // Write each translation as it completes
-        sheet.getRange(startRow + i, translationColumn).setValue(translation);
-        translatedCount++;
+      // Write each translation as it completes
+      sheet.getRange(startRow + i, translationColumn).setValue(translation);
+      translatedCount++;
 
-        // To avoid hitting OpenAI rate limits
-        Utilities.sleep(200);
-      } catch (error) {
-        Logger.log(`Error translating word "${word}": ${error.toString()}`);
-        sheet
-          .getRange(startRow + i, translationColumn)
-          .setValue("ERROR: " + error.toString());
-      }
+      // To avoid hitting OpenAI rate limits
+      Utilities.sleep(200);
+    } catch (error) {
+      Logger.log(`Error translating word "${word}": ${error.toString()}`);
+      sheet.getRange(startRow + i, translationColumn).setValue("ERROR: " + error.toString());
     }
+  }
 
-    // Show completion message only after all translations are done
-    ui.alert(
-      `Translation complete! Translated ${translatedCount} of ${totalToTranslate} words.`
-    );
-  };
-
-  // Start the translation process
-  processTranslations();
+  // Show completion message
+  ui.alert(`Translation complete! Translated ${translatedCount} of ${totalToTranslate} words.`);
 }
 
 /**
  * Translates a word using OpenAI API, with optional context
- *
- * @param {string} word - The word to translate
- * @param {string} sourceLanguage - The source language
- * @param {string} targetLanguage - The target language
- * @param {string} context - Optional context for translation (can be empty)
- * @return {Promise<string>} The translated word
  */
-async function translateWithOpenAI(
-  word,
-  sourceLanguage,
-  targetLanguage,
-  context = ""
-) {
+function translateWithOpenAI(word, sourceLanguage, targetLanguage, context = "") {
   const url = "https://api.openai.com/v1/chat/completions";
 
   // Adjust the prompt based on whether context is provided
@@ -164,7 +134,7 @@ async function translateWithOpenAI(
     muteHttpExceptions: true,
   };
 
-  const response = await UrlFetchApp.fetch(url, options);
+  const response = UrlFetchApp.fetch(url, options);
   const responseData = JSON.parse(response.getContentText());
 
   if (response.getResponseCode() !== 200) {
